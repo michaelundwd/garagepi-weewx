@@ -1,0 +1,904 @@
+# This is the Belchertown skin charting system which utilizes Highcharts to display the chart data.
+
+#########################################################################################################################################################
+#																																						#
+#	IMPORTANT MJU NOTES re configuring graphs.conf																										#
+#	1	generate options are used to determine how frequently reports are produced; saves significant processing power on Pi B							#
+#																																						#
+#########################################################################################################################################################
+
+# Chart Types:
+# Supported chart types in the Belchertown skin are line, spline, area, areaspline, scatter (primary for wind direction), column. 
+# To experiment with other chart types that Highcharts has built in, here's a list: https://www.highcharts.com/docs/chart-and-series-types/chart-types
+# Chart types that have a long load time are "gauge", "pie".
+# The "heatmap" charts are not supported.
+
+# Caution!
+# The more charts you have, the slower things can become. This is especially true at the YEAR level. These are interactive charts which have to build plot points from the database on every archive interval. This could result in large file sizes to generate, and for your website visitors to download. You're welcome to customize as many charts as you want, but be warned things could slow down if you do too much!
+# The defaults in this skin have proven to be a good baseline for the number of charts and options without overwhelming your system. 
+
+# Overview of options:
+# A timespan refers to "day", "week", "month" or "year". 
+# The [day], [week], [month], [year] sections must remain as they are and cannot be renamed. 
+# The charts under the timespan can be renamed and reorganized. They will display on your website in the order they appear here.
+# Under the chart are the observation names from the WeeWX database. Any item within your database "archive type" can be charted. For a list of "archive types" refer to this chart. http://weewx.com/docs/customizing.htm#archive_types
+# Each observation can be customized with built-in Highcharts "series" options. Popular ones are color, name and zIndex. For a list of Highcharts Series options refer to https://api.highcharts.com/highcharts/series - Each chart type (e.g. area, line, scatter, etc.) has different options that can be modified, so make sure you are applying the right option for the right chart type.
+
+# Special rainTotal Observation Type
+# The built in "rain" observation is really "bucket tips". The chart will show when the bucket tipped and that's it. 
+# Using the special built in "rainTotal" observation - unique to Belchertown - will increment those bucket tips across the timespan, showing you the total rain for that timespan.
+
+# Unsupported Configurations!
+# Line type and scatter type cannot exist on the same chart with working tooltip information. This is a limitation of Highcharts. See: https://stackoverflow.com/a/29604251/1177153 and https://api.highcharts.com/highcharts/tooltip.shared
+# Can't define second yAxis at this time if a chart has more than 1 data series which has different yAxis values. For example, windDir (ordinal yAxis) and windSpeed (speed yAxis). Please keep your charts in a like-for-like data set to have a consistent yAxis.
+
+# Some tricks and tips learned. 
+# A line plot (like windSpeed) and a scatter plot (like windDir) cannot exist on the same chart and have working tooltips (the bubble that pops up). But according to this post, you can "trick" highcharts into doing almost the same thing. https://stackoverflow.com/a/43992380/1177153
+# So this post translates into this configuration to have windDir on the same chart as windSpeed and windGust. Note how windDir is the first observation.
+# AS MENTIONED ABOVE THIS IS NOT A SUPPORTED CONFIGURATION! You will not have compass readouts, not will windDir be attached to an axis. This means your wind observations will be so small they'll be almost useless.
+# [[[windDir]]]
+#     type = line
+#     lineWidth = 0
+#     radius = 5
+#     [[[[marker]]]]
+#         enabled = true
+#     [[[[states]]]]
+#         [[[[[hover]]]]]
+#             lineWidthPlus = 0
+# [[[windSpeed]]]
+#     zIndex = 1
+# [[[windGust]]]
+
+# If a custom option broke your charts:
+# Undo your change and restart weewx. 
+# If that doesn't work, undo ALL changes and go back to the default configuration.
+# There is no guarantee that every customization option will work. 
+
+# Settings Overview:
+
+# aggregate_type 
+# This defines the aggregate of the chart values. Valid options are None, avg, sum, min, max
+    
+# time_length 
+# This is the time length the chart will show. There are two ways to define this.
+# 1. Use a keyword to define the calendar day, week, month or year.
+#   (Default)   today   = calendar day starting at midnight today.
+#               week    = calendar week starting Sunday at midnight.
+#               month   = calendar month starting on the 1st day of the month.
+#   (Default)   year    = calendar year start on 1st day of the year.
+# 2. Use seconds to graph a rolling time period. Some examples are:
+#               90000       = Use this for day. This will graph the last 25 hours as a rolling time period.
+#   (Default)   604800      = Use this for week. This will graph the last 7 days as a rolling time period.
+#   (Default)   2592000     = Use this for month. This will graph the last 30 days as a rolling time period.
+#               31536000    = Use this for year. This will graph the last 365 days as a rolling time period.
+# NOTE: If you do not specify a time_length, the global default will be used and that is set for 90000 seconds (25 hours)
+
+# type 
+# This is the Highcharts chart type. For example, line, spline, area, scatter, etc.
+
+# Title
+# This is the title of your chart.
+
+# observation_type
+# This is important if you want to show the same observation type in 1 chart. For example, to show 2 outTemp readings, you need to name your archive type something unique, like [[[outTemp2]]]
+# then beneath that, you specify the observation type with obs_type = outTemp.
+# You do not have to specify observation_type unless you want 2 or more of the same type on a chart. If you do not specify then the archive type will be used. Example: [[[outTemp]]]
+# For a fully working example, look at the outTemp charts for the Month and Year groups below.
+
+# Color
+# The colors listed in the Global Chart Defaults are the default color palette. This palette works with both light and dark mode, and they are applied in the order they are listed to the charts. 
+# To override a specific observation plot with it's own unique color you can set the color option under the observation type.
+# Colors can be specified using the hex notation in quotes, like color = "#000000" for black. 
+# Colors can also be specified in English name, such as color = "green"
+
+# Series Color
+#   1	Blue
+#   2	Green
+#   3	Orange
+#   4	Purple
+#   5	Pink
+#   6	Yellow
+#   7	Dark Blue
+#   8	Red
+#   9	Dark Purple
+#   10	Dark Green
+
+
+# Name
+# If you specify a name for the observation, then we will use that.
+# If you do not specify a name, one will be automatically used.
+
+# zIndex
+# The observation with the highest zIndex is on top. If this is not set, then the last option will be on top.
+
+# yAxis
+# By placing yAxis under the observation type, this means you want to associate that data to a different yAxis. There are two you can use. 
+# This is typically used to show rain totals on left side of the chart, and rain rate on the right side of the chart.
+# PLEASE NOTE: For best results, define your yAxis = 1 in the first observation for the chart. See Rain Chart defaults below.
+# yAxis = 0 (default): observation will show on the left side of the chart.
+# yAxis = 1: observation will show on the right side of the chart. 
+
+# yaxis_min, yaxis_max
+# Certain observations will require a minimum and maximum yAxis value. 
+# For example windDir would be from 0 to 360. Using the yaxis_min and yaxis_max you can define the chart's min and max yAxis values.
+# rxCheckPercent is another one where yAxis min would be 0, and max would be 100. 
+
+# Global Chart Defaults
+# These are fallback options that charts will use if an option is not defined.
+ 
+aggregate_type = None
+colors = "#268bd2, #90ed7d, #f7a35c, #d33682, #8085e9, #e4d354, #f15c80, #8085e8, #8d4653, #91e8e1"
+# 		     blue,   green,	 orange,  cerise, lt navy, yellow,     pink, md blue,    rust,    cyan
+time_length = 90000 # Last 25 hours
+tooltip_date_format = "LLL"
+type = line
+
+[homepage]
+    aggregate_interval = day
+    button_text = "Today"
+	exporting = 1
+    gapsize = 600           # This should be your archive_interval from weewx.conf. mju makes it 2 intervals to skip missing single reading
+	show_button = true
+	start_at_midnight = true
+    time_length = today
+    title = Today since Midnight
+
+	[[temperature]] #re-ordered Feb 2021
+        title = Temperature
+        [[[dewpoint]]]
+        [[[appTemp]]]
+            color = "#f7a35c"
+        [[[outTemp]]]
+            name = Temperature
+            yAxis = 0
+
+	[[rain]]	#re-ordered Feb 2021
+        title = Rain
+        [[[rainTotal]]]
+			type = area
+			yAxis = 1
+			zIndex = 1
+        [[[rainRate]]]
+
+	[[wind]]
+        title = Wind Rose
+        [[[windRose]]]	
+
+	[[solar]]   #maxSolarRad added Feb 2021
+        title = Solar Radiation and UV Index
+        [[[radiation]]]
+        name = Solar Radiation
+        color = "#ffc83f"
+        zIndex = 1
+        [[[maxSolarRad]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            type = area
+            yAxis_label = "W/m2"
+        [[[UV]]]
+            color = "#90ed7d"
+            name = UV Index
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yAxis_max = 14
+            yAxis_min = 0
+            zIndex = 2
+			
+    [[greenhouse_7]]
+		aggregate_interval = hour # 1 hour
+		aggregate_type = avg
+		gapsize = 3600 # 1 hour in seconds
+		subtitle = Temperature & Humidity
+		time_length = 604800 # Last 7 days
+		title = Greenhouse last 7 days
+        [[[inTemp]]]
+            name = Temperature
+			#yAxis = 0
+			yAxis_label = Temperature (°C)
+			yAxis_min = 0
+			yAxis_max = 40
+            zIndex = 1
+        [[[inhumidity]]]
+            color = "#f7a35c"
+			name = Humidity %
+			yAxis = 1
+			yAxis_label = Humidity (%)
+			yAxis_max = 100
+			yAxis_min = 0
+			zindex  = 2
+
+	[[barometer]]
+		aggregate_interval = hour # 1 hour
+		aggregate_type = avg
+		gapsize = 3600 # 1 hour in seconds
+		time_length = 604800 # Last 7 days
+        title = Barometer last 7 days
+        type = spline
+        [[[barometer]]]
+            color = "#BECC00"
+			yAxis_softMin = 990
+			yAxis_softMax = 1030
+			yAxis_tickInterval = 20
+
+
+[day]
+    # Chart Timespan Defaults
+
+    aggregate_interval = day
+    button_text = Yesterday
+    gapsize = 600           # This should be your archive_interval from weewx.conf. mju makes it 2 intervals to skip missing single reading
+    generate = daily        # sufficient as yesterday's readings do not change over the course of a day
+	show_button = true
+    time_ago = 1
+    time_length = days_ago
+    title = Yesterday
+
+	[[temperature]] #re-ordered Feb 2021
+        title = Temperature
+        [[[dewpoint]]]
+        [[[appTemp]]]
+            color = "#f7a35c"
+        [[[outTemp]]]
+            name = Temperature
+            yAxis = 0
+
+	[[rain]]	#re-ordered Feb 2021
+        title = Rain
+        [[[rainTotal]]]
+            name = Rain Total
+			yAxis = 1
+			type = area
+        [[[rainRate]]]
+			zIndex = 1
+
+ 	[[wind]]
+        title = Wind Rose
+        [[[windRose]]]	
+   
+	[[solar]]
+        title = Solar Radiation and UV Index
+        [[[radiation]]]
+            color = "#ffc83f"
+            name = Solar Radiation
+            zIndex = 1
+        [[[maxSolarRad]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            type = area
+            yAxis_label = "W/m2"
+        [[[UV]]]
+            color = "#90ed7d"
+            name = UV Index
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yAxis_max = 14
+            yAxis_min = 0
+            zIndex = 2			
+
+[week]
+    # Chart Timespan Defaults
+
+    aggregate_interval = hour # 1 hour
+    aggregate_type = max
+    button_text = 7 days
+    gapsize = 3600 # 1 hour in seconds
+    generate = hourly
+	show_button = true
+	start_at_midnight = true
+    time_length = 604800 # Last 7 days
+    title = Last 7 days
+
+	[[temperature]] #re-ordered Feb 2021
+        title = Temperature
+        [[[dewpoint]]]
+        [[[windchill]]]		#appTemp is rejected
+            color = "#f7a35c"
+        [[[outTemp]]]
+            name = Temperature
+            yAxis = 0
+
+	[[rain]]	#re-ordered Feb 2021
+        title = Rain
+        [[[rainTotal]]]
+            name = Rain Total
+			type = area
+			yAxis = 1
+        [[[rainRate]]]
+			zIndex = 1
+
+    [[wind]]
+        title = Wind Rose
+        [[[windRose]]]	
+
+	[[solar]]
+        title = Solar Radiation and UV Index
+        [[[radiation]]]
+            color = "#ffc83f"
+            name = Solar Radiation
+            zIndex = 1
+        [[[maxSolarRad]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            type = area
+            yAxis_label = "W/m2"
+        [[[UV]]]
+            color = "#90ed7d"
+            name = UV Index
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yAxis_max = 14
+            yAxis_min = 0
+            zIndex = 2
+			 
+[month]
+    # Chart Timespan Defaults
+    
+    aggregate_interval = day # 1 day
+    aggregate_type = max
+    button_text = 30 days
+    gapsize = 86400 # 1 day in seconds
+    generate = daily
+	show_button = true
+	start_at_midnight = true
+    time_length = 2592000  # Last 30 days
+    title = Last 30 days
+    type = spline
+
+	[[temperature]] #re-ordered Feb 2021
+        title = Temperature
+        [[[dewpoint]]]
+        [[[windchill]]]		#appTemp is rejected
+            color = "#f7a35c"
+        [[[outTemp]]]
+            name = Temperature
+            yAxis = 0
+
+    [[rain]]
+        title = Rain
+        [[[rainTotal]]]
+            name = Rain Total
+			type = area
+			yAxis = 1
+        [[[rainRate]]]
+			zIndex = 1
+			    
+    [[wind]]
+        title = Wind Rose
+        [[[windRose]]]	
+          
+	[[solar]]
+        title = Solar Radiation and UV Index                        
+        subtitle = Daily Maximum
+        [[[radiation]]]
+            aggregate_type = max
+            color = "#ffc83f"
+            name = Solar Radiation
+            zIndex = 1
+        [[[maxSolarRad]]]
+            aggregate_type = max
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            type = area
+            yAxis_label = "W/m2"
+        [[[UV]]]
+            aggregate_type = max
+            color = "#90ed7d"
+            name = UV Index
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yAxis_max = 14
+            yAxis_min = 0
+            zIndex = 2
+
+[year]
+    # Chart Timespan Defaults
+
+    aggregate_interval = day # 1 day
+    aggregate_type = max
+    button_text = 365 days
+    gapsize = 86400 # 1 day in seconds
+    generate = daily
+	show_button = true
+	start_at_midnight = true
+    title = Last 365 days
+    time_length = 31536000 # 365 days - was year
+    type = spline
+
+    [[temperature]]
+        title = Temperature
+        [[[outTemp]]]
+            color = red
+            name = Max Temperature
+            zIndex = 1
+        [[[outTemp_min]]]
+            aggregate_type = min
+            color = blue
+            name = Min Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+    
+    [[rain]]
+        title = Rain
+        [[[rainTotal]]]
+            name = Rain Total
+			yAxis = 1
+			type = area
+        [[[rainRate]]]
+			zIndex = 1
+			    
+    [[wind]]
+	
+        title = Wind Rose
+        [[[windRose]]]	
+	
+	[[solar]]
+        subtitle = Daily Maximum
+        title = Solar Radiation and UV Index                        
+        [[[radiation]]]
+            aggregate_type = max
+            color = "#ffc83f"
+            name = Solar Radiation
+            zIndex = 1
+        [[[maxSolarRad]]]
+            aggregate_type = max
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            type = area
+            yAxis_label = "W/m2"
+        [[[UV]]]
+            aggregate_type = max
+            color = "#90ed7d"
+            name = UV Index
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yAxis_max = 14
+            yAxis_min = 0
+
+[annual]
+    aggregate_interval = day # 1 day
+    aggregate_type = max
+    button_text = "Annual"
+    gapsize = 86400
+    generate = daily
+    show_button = true
+    #	time_length = year_specific
+    title = "Annual Summaries"
+    type = spline
+    xAxis_categories = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    xAxis_groupby = month
+
+    # This year's data to date - self-adjusting so do not copy
+
+    [[RainTemperature]]
+        aggregate_type = max
+        aggregate_interval = day # 1 day
+        gapsize = 86400
+        subtitle = "Rainfall & Temperature"
+        time_length = year
+        title = "This Year"
+        type = spline
+        [[[outTemp]]]
+            color = red
+            name = Max Temperature
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min]]]
+            aggregate_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Min Temperature
+            observation_type = outTemp
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal]]]
+            name = Rain Total
+            type = column
+            yAxis = 1
+            zIndex = 0
+            color = "#268bd2"
+
+	[[Solar]]
+		aggregate_interval = day	#86400 = 1 day
+	    aggregate_type = avg
+        subtitle = "Daily Average for Solar Radiation & UV"
+        time_length = year
+        title = "This Year"
+        type = column
+        [[[radiation]]]
+           name = Solar Radiation
+           zIndex = 1
+           color = "#ffc83f"
+        [[[maxSolarRad]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV]]]
+            yAxis = 1
+            yaxis_min = 0
+            yaxis_max = 12
+            color = "#90ed7d"
+            yAxis_label = "UV Index"
+            name = UV Index
+            zIndex = 2
+            
+#   Start of annual section to copy for previous years - remember to change the year everywhere (12 places)
+
+    [[RainTemperature2022]]
+        subtitle = "Rainfall & Temperature"
+        title = "2022"
+        type = spline
+		time_length = year_specific
+        year_specific = 2022
+        [[[outTemp_max2022]]]
+			aggregate_type = max
+            color = "#fc0404"
+            name = Max Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min2022]]]
+            aggregate_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Min Temperature
+            observation_type = outTemp
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 1
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal2022]]]
+            color = "#438bd6"
+            name = Rain Total
+            observation_type = rainTotal
+            type = column
+            yAxis = 1
+            zIndex = 0
+
+	[[Solar2022]]
+		aggregate_interval = day	#86400 = 1 day
+	    aggregate_type = avg
+        subtitle = "Daily Average for Solar Radiation & UV"
+        title = "2022"
+        type = column
+    time_length = year_specific
+        year_specific = 2022
+        [[[radiation2022]]]
+           color = "#ffc83f"
+           name = Solar Radiation
+           observation_type = radiation
+           yAxis = 0
+           zIndex = 1
+        [[[maxSolarRad2022]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV2022]]]
+            color = "#90ed7d"
+            name = UV Index
+            observation_type = UV
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yaxis_min = 0
+            yaxis_max = 12
+            zIndex = 2
+
+#   End of annual section to copy
+
+
+    [[RainTemperature2021]]
+        subtitle = "Rainfall & Temperature"
+        title = "2021"
+        type = spline
+		time_length = year_specific
+        year_specific = 2021
+        [[[outTemp_max2021]]]
+			aggregate_type = max
+            color = "#fc0404"
+            name = Max Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min2021]]]
+            aggregate_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Min Temperature
+            observation_type = outTemp
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 1
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal2021]]]
+            color = "#438bd6"
+            name = Rain Total
+            observation_type = rainTotal
+            type = column
+            yAxis = 1
+            zIndex = 0
+
+	[[Solar2021]]
+		aggregate_interval = day	#86400 = 1 day
+	    aggregate_type = avg
+        subtitle = "Daily Average for Solar Radiation & UV"
+        title = "2021"
+        type = column
+    time_length = year_specific
+        year_specific = 2021
+        [[[radiation2021]]]
+           color = "#ffc83f"
+           name = Solar Radiation
+           observation_type = radiation
+           yAxis = 0
+           zIndex = 1
+        [[[maxSolarRad2021]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV2021]]]
+            color = "#90ed7d"
+            name = UV Index
+            observation_type = UV
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yaxis_min = 0
+            yaxis_max = 12
+            zIndex = 2
+
+#   End of annual section to copy
+
+#   Start of annual section to copy for previous years - remember to change the year everywhere (12 places)
+
+    [[RainTemperature2020]]
+        subtitle = "Rainfall & Temperature"
+        title = "2020"
+        type = spline
+    time_length = year_specific
+        year_specific = 2020
+        [[[outTemp_max2020]]]
+			aggregate_type = max
+            color = "#fc0404"
+            name = Max Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min2020]]]
+            aggregate_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Min Temperature
+            observation_type = outTemp
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 1
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal2020]]]
+            color = "#438bd6"
+            name = Rain Total
+            observation_type = rainTotal
+            type = column
+            yAxis = 1
+            zIndex = 0
+
+	[[Solar2020]]
+		aggregate_interval = day	#86400 = 1 day
+	    aggregate_type = avg
+        subtitle = "Daily Average for Solar Radiation & UV"
+        title = "2020"
+        type = column
+    time_length = year_specific
+        year_specific = 2020
+        [[[radiation2020]]]
+           color = "#ffc83f"
+           name = Solar Radiation
+           observation_type = radiation
+           yAxis = 0
+           zIndex = 1
+        [[[maxSolarRad2020]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV2020]]]
+            color = "#90ed7d"
+            name = UV Index
+            observation_type = UV
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yaxis_min = 0
+            yaxis_max = 12
+            zIndex = 2
+
+#   End of annual section to copy
+
+#   Start of annual section to copy - remember to change the year everywhere!
+
+    [[RainTemperature2019]]
+        subtitle = "Rainfall & Temperature"
+        title = "2019"
+        type = spline
+    time_length = year_specific
+        year_specific = 2019
+        [[[outTemp_max2019]]]
+			aggregate_type = max
+            color = "#fc0404"
+            name = Max Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min2019]]]
+            aggregate_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Min Temperature
+            observation_type = outTemp
+            yAxis_max = 45
+            yAxis_min = -15
+            zIndex = 1
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal2019]]]
+            color = "#438bd6"
+            name = Rain Total
+            observation_type = rainTotal
+            type = column
+            yAxis = 1
+            zIndex = 0
+
+	[[Solar2019]]
+		aggregate_interval = day	#86400 = 1 day
+	    aggregate_type = avg
+        subtitle = "Daily Average for Solar Radiation & UV"
+        title = "2019"
+        type = column
+    time_length = year_specific
+        year_specific = 2019
+        [[[radiation2019]]]
+           color = "#ffc83f"
+           name = Solar Radiation
+           observation_type = radiation
+           yAxis = 0
+           zIndex = 1
+        [[[maxSolarRad2019]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV2019]]]
+            color = "#90ed7d"
+            name = UV Index
+            observation_type = UV
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yaxis_min = 0
+            yaxis_max = 12
+            zIndex = 2
+
+#   End of annual section to copy
+
+
+[summary]
+	# Overall Summary across all years
+	
+    aggregate_interval = day  #86400 # 1 day
+    button_text = "All Years"
+    gapsize = 86400
+    generate = monthly
+    show_button = true
+	time_length = all
+    title = "Summary for all years"
+    type = spline
+    xAxis_categories = 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    xAxis_groupby = month
+
+    [[RainTemperatureAll]]
+        title = "Average Temperature and Rainfall"
+        subtitle = "for all months in all years"
+        [[[outTemp_max_All]]]
+            aggregate_type = avg
+            average_type = max
+            color = "#fc0404"
+            name = Avg Max Temperature
+            observation_type = outTemp
+			yAxis_label = Temperature (°C)
+            yAxis_max = 30
+            yAxis_min = -10
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[outTemp_min_All]]]
+            aggregate_type = avg
+            average_type = min
+            color = "#90ed7d"	# was "#173c6a"
+            name = Avg Min Temperature
+            observation_type = outTemp
+            yAxis_max = 30
+            yAxis_min = -10
+            zIndex = 2
+            [[[[marker]]]]
+                enabled = true
+                radius = 4
+        [[[rainTotal_All]]]
+            aggregate_type = avg
+            average_type = sum
+            color = "#438bd6"		
+            name = Avg Monthly Rainfall
+            observation_type = rain
+            type = column
+            yAxis = 1
+            zIndex = 0
+
+	[[SolarAll]]
+		aggregate_interval = day	#86400 = 1 day
+		aggregate_type = avg		
+ 		subtitle = "Daily Average for all years"
+        title = Solar Radiation & UV Index
+		type = column
+        [[[radiation_All]]]
+           color = "#ffc83f"
+           name = Solar Radiation
+           observation_type = radiation
+           zIndex = 1
+        [[[maxSolarRad_All]]]
+            color = "#f7f2b4"
+            name = Theoretical Max Solar Radiation
+            observation_type = maxSolarRad
+            zIndex = 0
+        [[[UV_All]]]
+            color = "#90ed7d"
+            name = UV Index
+            observation_type = UV
+            yAxis = 1
+            yAxis_label = "UV Index"
+            yaxis_min = 0
+            yaxis_max = 4
+            zIndex = 2
+
+    [[rainYearTotals]]
+        aggregate_type = avg
+		subtitle = "for all years"
+        title = "Rainfall by Year"
+		type = column
+        xAxis_groupby = year
+		xAxis_categories = '2018', '2019', '2020', '2021', '2022', '2023', '2024', '2025'
+        [[[rainTotal]]]
+            name = Rain Total
+
+	[[roseplt]]
+		subtitle = "for all years"
+		title = "Wind Rose"
+		[[[windRose]]]
+

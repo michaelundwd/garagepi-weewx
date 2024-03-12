@@ -1,0 +1,91 @@
+Testing Belchertown Reports
+===========================
+
+There are two reasons for using a testing arangement
+
+1	To test new versions of the Belchertown skin after updates have been made before release to Lordship Weather
+2	Whilst developing a version of the Lordship Weather website.  Can be used with care for any modifications.
+
+
+Using and Switching Belchertown test skin On & Off
+==================================================
+
+1	Check skin_blank exists in Belchertown/test folder
+2	Check skin_test.conf exists in the Belchertown/test folder
+3	Edits are made to skin.conf in BelchertownTest folder when it is set to skin_test.conf
+
+ON	To turn the test report generation ON:
+	1	copy skin_test.conf to skin.conf for editing and testing
+OFF	To turn the test report generation OFF: 
+	1	copy skin.conf to skin_test.conf, preserving the changes that have been made during testing
+	2	copy skin_blank.conf to skin.conf, to ensure the blank is  used
+
+
+IMPORTANT NOTE
+==============
+
+Watch for the generate tags.  They have been commented out for testing but need to be replaced for live operation.
+Probably the best way of moving test to live is to do a compare on the test and live .conf files
+and then move the significant differences from test to live
+
+Also necessary to force the complete regeneration of all files because of the generate tags (daily, weekly, monthly etc)
+
+
+
+
+Setup
+=====
+
+Weewx - weewx.conf Changes
+==========================
+
+A Belchertown test setup, containing .conf files etc is set up in /etc/weewx/skins/Belchertown/test
+The weewx config file /etc/weex/weewx.conf is modified to contain a new stanza to produce reports in /var/weewx/reports/test
+
+    [[BelchertownTest]]
+        skin = BelchertownTest
+        HTML_ROOT = /var/weewx/reports/test
+        belchertown_root_url = /var/weewx/reports/test
+        [[[Units]]]
+            [[[[Groups]]]]
+                group_altitude = meter
+                group_speed2 = mile_per_hour2
+                group_pressure = mbar
+                group_rain = mm
+                group_rainrate = mm_per_hour
+                group_temperature = degree_C
+                group_degree_day = degree_C_day
+                group_speed = mile_per_hour
+            [[[[TimeFormats]]]]
+                current = %x %H:%M hrs
+        [[[Extras]]]
+            highcharts_homepage_graphgroup = homepage
+            site_title = Lordship Weather
+            footer_copyright_text = Lordship Weather
+            forecast_enabled = 1
+
+BelchertownTest Changes
+=======================
+
+The contents of /etc/weewx/skins/Belechertown are copied to etc/weewx/skins/BelchertownTest
+A backup of skin.conf in /etc/weewx/BelchertownTest called skin_test.conf
+A new skin.conf (skin_blank.conf) is produced in /etc/weewx/skins/BelchertownTest with no contents
+This is then switched with skin_test.conf in the same folder to switch
+
+Using and Switching Belchertown test skin On & Off
+==================================================
+
+1	Check skin_blank exists in Belchertown/test folder
+2	Check skin_test.conf exists in the Belchertown/test folder
+3	Edits are made to skin.conf in BelchertownTest folder when it is set to skin_test.conf
+
+ON	To turn the test report generation ON:
+	1	copy skin_test.conf to skin.conf for editing and testing
+OFF	To turn the test report generation OFF: 
+	1	copy skin.conf to skin_test.conf, preserving the changes that have been made during testing
+	2	copy skin_blank.conf to skin.conf, to ensure the blank is  used
+	
+
+
+
+
